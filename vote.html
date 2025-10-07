@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cast Your Vote - Blockchain Voting System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--primary-bg);
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(124, 58, 237, 0.05) 0%, transparent 50%);
+        }
+        
+        .jetbrains {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .candidate-card {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .candidate-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .candidate-card:hover::before {
+            left: 100%;
+        }
+        
+        .candidate-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent-primary);
+            box-shadow: 0 20px 40px rgba(0, 212, 255, 0.1);
+        }
+        
+        .vote-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .vote-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .vote-btn:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+        
+        /* Blockchain Animation Container */
+        .blockchain-vote-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 40;
+            display: none;
+        }
+        
+        .blockchain-vote-animation.active {
+            display: block;
+        }
+        
+        .blockchain-block {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: 2px solid var(--accent-primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            left: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.6);
+            animation: blockDrop 2s ease-in-out;
+        }
+        
+        .blockchain-block::before,
+        .blockchain-block::after {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent-primary), transparent);
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .blockchain-block::before {
+            left: -80px;
+        }
+        
+        .blockchain-block::after {
+            right: -80px;
+        }
+        
+        @keyframes blockDrop {
+            0% {
+                top: -100px;
+                opacity: 0;
+                transform: translateX(-50%) rotateY(0deg);
+            }
+            10% {
+                opacity: 1;
+            }
+            50% {
+                transform: translateX(-50%) rotateY(180deg);
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                top: 100vh;
+                opacity: 0;
+                transform: translateX(-50%) rotateY(360deg);
+            }
+        }
+        
+        .success-particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-success);
+            border-radius: 50%;
+            animation: particleBurst 1s ease-out forwards;
+        }
+        
+        @keyframes particleBurst {
+            0% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(var(--x), var(--y)) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transition: width 0.5s ease;
+        }
+        
+        .pulse-border {
+            position: relative;
+        }
+        
+        .pulse-border::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary), var(--accent-success));
+            border-radius: inherit;
+            opacity: 0;
+            animation: pulseBorder 2s ease-in-out infinite;
+            z-index: -1;
+        }
+        
+        @keyframes pulseBorder {
+            0%, 100% {
+                opacity: 0;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.02);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Blockchain Vote Animation -->
+    <div class="blockchain-vote-animation" id="blockchainAnimation">
+        <div class="blockchain-block">
+            <i class="fas fa-cube text-white text-2xl"></i>
+        </div>
+    </div>
+
+    <!-- Success Particles -->
+    <div class="success-particles" id="successParticles"></div>
+
+    <!-- Navigation -->
+    <nav class="glass fixed top-0 w-full z-50 px-6 py-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <button id="backBtn" class="text-gray-400 hover:text-white transition">
+                    <i class="fas fa-arrow-left text-xl"></i>
+                </button>
+                <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-purple-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-cube text-white"></i>
+                </div>
+                <span class="text-white font-bold text-xl jetbrains">BLOCKVOTE</span>
+            </div>
+            <div class="flex items-center space-x-4">
+                <div class="glass rounded-lg px-4 py-2 flex items-center">
+                    <i class="fas fa-user text-cyan-400 mr-2"></i>
+                    <span id="userDisplay" class="text-white font-medium"></span>
+                </div>
+                <div class="glass rounded-lg px-4 py-2 flex items-center">
+                    <i class="fas fa-coins text-yellow-400 mr-2"></i>
+                    <span id="userPoints" class="text-white font-medium">0</span>
+                </div>
+                <div class="glass rounded-lg px-4 py-2 flex items-center">
+                    <i class="fas fa-vote-yea text-green-400 mr-2"></i>
+                    <span id="votesRemaining" class="text-white font-medium">3</span>
+                </div>
+                <button id="profileBtn" class="glass rounded-lg px-4 py-2 text-gray-400 hover:text-white transition">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Floating Action Button -->
+    <div class="fab-nav" id="fabNav">
+        <i class="fas fa-compass text-white"></i>
+    </div>
+    <div class="fab-menu" id="fabMenu">
+        <div class="fab-item" data-page="index" title="Home">
+            <i class="fas fa-home text-cyan-400"></i>
+        </div>
+        <div class="fab-item" data-page="result" title="Results">
+            <i class="fas fa-chart-pie text-purple-400"></i>
+        </div>
+        <div class="fab-item" data-page="leaderboard" title="Leaderboard">
+            <i class="fas fa-trophy text-yellow-400"></i>
+        </div>
+        <div class="fab-item" data-page="settings" title="Settings">
+            <i class="fas fa-cog text-gray-400"></i>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 pt-24 pb-12">
+        <!-- Breadcrumb -->
+        <div class="breadcrumb mb-8">
+            <a href="index.html"><i class="fas fa-home mr-2"></i>Home</a>
+            <span class="breadcrumb-separator mx-2">/</span>
+            <span class="text-cyan-400">Voting Portal</span>
+        </div>
+
+        <header class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                <span class="hero-gradient">CAST YOUR VOTE</span>
+            </h1>
+            <p class="text-gray-400">Secure Blockchain Voting - Election 2024</p>
+        </header>
+
+        <!-- Blockchain Status -->
+        <div class="glass rounded-2xl p-6 mb-8 pulse-border">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-white jetbrains mb-1">BLOCKCHAIN STATUS</h2>
+                    <p class="text-gray-400 text-sm">Next block confirmation in</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-cyan-400 jetbrains" id="blockCountdown">00:00</div>
+                    <p class="text-gray-400 text-sm">Block #892347</p>
+                </div>
+            </div>
+            <div class="w-full bg-gray-800 rounded-full h-2">
+                <div id="blockProgress" class="progress-fill h-2 rounded-full" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <main class="max-w-7xl mx-auto">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl font-bold text-white mb-4">SELECT CANDIDATE</h2>
+                <p class="text-gray-400">Your vote will be permanently recorded on the blockchain</p>
+            </div>
+
+            <div class="grid md:grid-cols-3 gap-8 mb-12">
+                <!-- Candidate 1 -->
+                <div class="candidate-card glass rounded-2xl overflow-hidden">
+                    <div class="relative">
+                        <img src="https://picsum.photos/seed/alice-blockchain/400/300.jpg" alt="Alice" class="w-full h-64 object-cover">
+                        <div class="absolute top-4 right-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white px-4 py-2 rounded-lg">
+                            <span class="font-bold jetbrains">PARTY ALPHA</span>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-transparent p-4">
+                            <h3 class="text-2xl font-bold text-white">ALICE JOHNSON</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-gray-400 mb-4 italic">"Building a sustainable future with blockchain transparency"</p>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-white mb-3">Key Policies:</h4>
+                            <ul class="space-y-2">
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-shield-alt text-cyan-400 mr-3"></i>
+                                    <span>Digital Identity Security</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-link text-cyan-400 mr-3"></i>
+                                    <span>Blockchain Integration</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-leaf text-cyan-400 mr-3"></i>
+                                    <span>Green Technology</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                                <span>Blockchain Votes</span>
+                                <span id="aliceVoteCount" class="jetbrains">312</span>
+                            </div>
+                            <div class="w-full bg-gray-800 rounded-full h-2">
+                                <div id="aliceVoteBar" class="progress-fill h-2 rounded-full" style="width: 35%"></div>
+                            </div>
+                        </div>
+                        <button class="vote-btn w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105" data-candidate="Alice">
+                            <i class="fas fa-cube mr-2"></i>MINE VOTE BLOCK
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Candidate 2 -->
+                <div class="candidate-card glass rounded-2xl overflow-hidden">
+                    <div class="relative">
+                        <img src="https://picsum.photos/seed/bob-blockchain/400/300.jpg" alt="Bob" class="w-full h-64 object-cover">
+                        <div class="absolute top-4 right-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white px-4 py-2 rounded-lg">
+                            <span class="font-bold jetbrains">PARTY BETA</span>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-transparent p-4">
+                            <h3 class="text-2xl font-bold text-white">BOB SMITH</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-gray-400 mb-4 italic">"Innovation through decentralized governance"</p>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-white mb-3">Key Policies:</h4>
+                            <ul class="space-y-2">
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-rocket text-purple-400 mr-3"></i>
+                                    <span>Tech Innovation</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-coins text-purple-400 mr-3"></i>
+                                    <span>Crypto Economy</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-network-wired text-purple-400 mr-3"></i>
+                                    <span>Smart Contracts</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                                <span>Blockchain Votes</span>
+                                <span id="bobVoteCount" class="jetbrains">287</span>
+                            </div>
+                            <div class="w-full bg-gray-800 rounded-full h-2">
+                                <div id="bobVoteBar" class="progress-fill h-2 rounded-full" style="width: 32%"></div>
+                            </div>
+                        </div>
+                        <button class="vote-btn w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105" data-candidate="Bob">
+                            <i class="fas fa-cube mr-2"></i>MINE VOTE BLOCK
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Candidate 3 -->
+                <div class="candidate-card glass rounded-2xl overflow-hidden">
+                    <div class="relative">
+                        <img src="https://picsum.photos/seed/charlie-blockchain/400/300.jpg" alt="Charlie" class="w-full h-64 object-cover">
+                        <div class="absolute top-4 right-4 bg-gradient-to-r from-green-500 to-teal-600 text-white px-4 py-2 rounded-lg">
+                            <span class="font-bold jetbrains">PARTY GAMMA</span>
+                        </div>
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-gray-900 to-transparent p-4">
+                            <h3 class="text-2xl font-bold text-white">CHARLIE DAVIS</h3>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-gray-400 mb-4 italic">"Community empowerment through decentralization"</p>
+                        <div class="mb-6">
+                            <h4 class="font-semibold text-white mb-3">Key Policies:</h4>
+                            <ul class="space-y-2">
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-users text-green-400 mr-3"></i>
+                                    <span>Community DAO</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-home text-green-400 mr-3"></i>
+                                    <span>DeFi Housing</span>
+                                </li>
+                                <li class="flex items-center text-gray-400">
+                                    <i class="fas fa-handshake text-green-400 mr-3"></i>
+                                    <span>Peer-to-Peer</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between text-sm text-gray-400 mb-2">
+                                <span>Blockchain Votes</span>
+                                <span id="charlieVoteCount" class="jetbrains">293</span>
+                            </div>
+                            <div class="w-full bg-gray-800 rounded-full h-2">
+                                <div id="charlieVoteBar" class="progress-fill h-2 rounded-full" style="width: 33%"></div>
+                            </div>
+                        </div>
+                        <button class="vote-btn w-full bg-gradient-to-r from-green-500 to-teal-600 hover:from-green-600 hover:to-teal-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105" data-candidate="Charlie">
+                            <i class="fas fa-cube mr-2"></i>MINE VOTE BLOCK
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Transaction History -->
+            <div class="glass rounded-2xl p-6 mb-8">
+                <h3 class="text-xl font-bold text-white mb-4 jetbrains">TRANSACTION HISTORY</h3>
+                <div id="votingHistory" class="space-y-2">
+                    <p class="text-gray-400">No transactions yet. Mine your first vote block!</p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-center space-x-4">
+                <button id="viewResultsBtn" class="glass hover:bg-white hover:bg-opacity-10 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105">
+                    <i class="fas fa-chart-pie mr-2"></i>VIEW LEDGER
+                </button>
+                <button id="leaderboardBtn" class="glass hover:bg-white hover:bg-opacity-10 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105">
+                    <i class="fas fa-trophy mr-2"></i>LEADERBOARD
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Vote Confirmation Modal -->
+    <div id="voteModal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex items-center justify-center z-50">
+        <div class="glass rounded-2xl p-8 max-w-md w-full mx-4 text-center">
+            <div class="mb-6">
+                <div class="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-check text-white text-3xl"></i>
+                </div>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2 jetbrains">BLOCK MINED!</h2>
+            <p class="text-gray-400 mb-6">Your vote for <span id="votedCandidate" class="text-cyan-400 font-bold"></span> has been recorded on the blockchain</p>
+            <div class="glass rounded-lg p-4 mb-6">
+                <p class="text-green-400 font-semibold mb-2">+10 Points Earned!</p>
+                <p class="text-gray-400 text-sm">Transaction ID: <span class="jetbrains text-xs" id="txId">0x7f9a...</span></p>
+                <p class="text-gray-400 text-sm">Votes Remaining: <span id="remainingVotes" class="font-bold"></span></p>
+            </div>
+            <button id="closeVoteModal" class="btn-primary">
+                CONTINUE
+            </button>
+        </div>
+    </div>
+
+    <script src="js/firebase-config.js"></script>
+    <script src="js/vote.js"></script>
+</body>
+</html>
